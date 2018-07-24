@@ -1,0 +1,145 @@
+---
+title: "BIOL30003: Epidemics on Networks II"
+author: "Nic Geard"
+date: "23 August 2017"
+output: 
+  html_document: default
+layout: page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(igraph)
+```
+
+The primary aim of this practical is to develop a simple, discrete time, individual-based model of disease transmission on a network.  Rather than simply provide the final code, we will build up each component in turn and discuss some of the design considerations along the way.
+
+### Representing the population
+
+The two key things we need to represent about our population are:
+
+1. the current disease state of each individual in the population; and
+
+2. the pattern of interactions between individuals.
+
+For the latter, we will use an igraph network, as introduced in the previous tutorial.  It is possible to associate attributes with nodes (vertices) in an igraph network, so we could use these to store disease state.  An alternative is to use a vector to store disease states, where the `i`th position in the vector corresponds to the node `i` in the network.  The network can then be used simply to store information on the neighbourhood of each individual.  We will take this latter approach here.
+
+### A homogeneous mixing model
+
+To begin, we will implement an even simpler model with *no* population structure (ie, no contact network).  We will implement our model as a function, with model parameters passed in as arguments to that function.  Define a new function `SIR` that takes (for now) a single argument, `N` (our population size).
+
+```{r}
+# define SIR function
+```
+
+The first thing we need to do in this function is create a vector to store the current state of our popluation.  We will represent disease states using the characters `'S'`, `'I'` and `'R'`.  We'll assume that everyone in our population is initially susceptible, except for a single (randomly chosen) seed individual, who is infectious (Hint: look up `rep` and `sample`)
+
+```{r}
+# define SIR function
+    # create population vector
+```
+
+As our model is discrete time, we can iterate over each time step using a loop.  R has three types of loop (`for`, `while` and `repeat`) and either a `for` or a `while` loop could make sense for our purposes.  Why might we choose one of these over the other? (Hint: think about the conditions under which you wish your loop to terminate).
+
+Choose one of these for our simulation loop.  Within our simulation loop, we want need to do two things: work out who gets infected (`S -> I`) and who recovers (`I -> R`).  As we are updating the state of our population synchronously (ie, everyone at the same time), we need to create a copy of our population vector to store the new state in.
+
+```{r}
+# define SIR function
+    # create population vector
+    # loop over the following steps:
+        # create a copy of our population vector
+        # check for transmission
+        # check for recovery
+```
+
+The subset of people who can be infected are those that are currently susceptible.  We'll test each of these people in turn to see if they become infected.  Generate a list of the susceptible people in your population (Hint: remember `which`) and iterate over it using a `for` loop.  
+
+For each susceptible person, we need to calculate the probability that they are going to be infected during this time step.  This will require us to add some new parameters to our model (and hence as arguments to our `SIR` function).  What form should this function take?  What parameters do we need?
+
+Once we have calculated this probability, we can then generate a random number to see whether this transmission event actually occurs (Hint: look up `runif`).  If it does, we need to update the state of this individual -- remember to do this in our new population vector!
+
+```{r}
+# define SIR function
+    # create population vector
+    # loop over the following steps:
+        # create a copy of our population vector
+        # for each susceptible person:
+            # calculate the probability that they are infected
+            # determine whether they become infected, and update their state if necessary
+        # check for recovery
+```
+
+For each infectious person, we need to calculate the probability that they are going to recover in this time step. This can be done in a similar fashion to transmission, but is simpler, as we can assume that recovery is independent of the state of the rest of the population.  We will need to add a new parameter though.
+
+At the end of our loop, we need to replace our *current* population vector with the *new* one we have just created (as this will be the current state of the population in the next time step).
+
+```{r}
+# define SIR function
+    # create initial population vector
+    # loop over the following steps:
+        # create a copy of our population vector
+        # for each susceptible person:
+            # calculate the probability that they are infected in this time step
+            # determine whether they are infected, and update their state if necessary
+        # for each infectious person:
+            # determine whether they recover in this time step, and update their state if necessary
+        # update population vector
+```
+
+We can now run our model, but we have no way of knowing what is going on! We could write the state of our population out to the screen (or a file) at each time step, but as we will want to plot the output from our simulation run later on, it would be better to store it in a variable (and have our function `return` it).
+
+Create vectors (one per disease state) to store the number of people in that disease state in each time step (Hint: look up `numeric`).  You will need to update these on each pass through your loop (Hint: look up `append`).
+
+Combine these vectors into a data frame, and return them from your function (Hint: it may also be helpful to create a field in your data frame storing the time step).
+
+### Visualising our model output
+
+R provides some decent plotting functions in its base library, but it is worthwhile becoming familiar with `ggplot2` as well.  Install this if necessary.
+
+Assuming the output from your function is stored as a data frame called `output` with fields `t`, `S`, `I` and `R`, the following commands should generate a timeseries plot of your simulation run:
+
+```{r eval=FALSE}
+ggplot(data=output, aes(x=t)) +
+  geom_line(aes(y=S), colour='blue') +
+  geom_line(aes(y=I), colour='red') +
+  geom_line(aes(y=R), colour='green') + 
+  labs(x='timestep', y='count') +
+  theme_classic()
+```
+
+### Reintroducing our contact network
+
+Now that we have our basic model, working we can reintroduce our contact network.  The key thing that this will change is how we determine the probability that a susceptible person is infected.  As mentioned above, we will continue to use our population vector to track the disease states of each member of the population.
+
+Create a copy of the `SIR` function and name it `SIR.network`.  Add an argument to the definition of this new function to allow a network to be passed in.  Note: you need to ensure that the size of your population `N` matches the size of your network.  One way to do this is just to remove the `N` parameter altogether, and use the size of the network to specify your population size.
+
+We could keep iterating over all of the susceptible people in our network and calculating the probability that they become infected but, if our network is very large, and the number of infectious people is very small, this means that we will be testing for transmission to lots of people who are at no risk of infection (ie, who have no infectious neighbours).
+
+Instead, we can iterate over each of the infectious people in our population, and test to see whether they infect their neighbours.  What form should this function take?  What parameters do we need?  (Hint: remember that we can find the neighbours of a given node using the `neighbors` function)
+
+Note that, after we have done this, we can immediately also check to see whether this infectious person recovers.
+
+```{r}
+# define SIR.network function
+    # create initial population vector
+    # loop over the following steps:
+        # create a copy of our population vector
+        # for each infectious person i:
+            # for each susceptible neighbour of i:
+                # determine whether they are infected, and update their state if necessary
+            # determine whether i will recover in this time step, and update their state if necessary
+        # update population vector
+```
+
+### Things to try
+
+We can use the `SIR.network` function to simulate the spread of disease on networks with arbitrary structure.  Compare properties of outbreaks on random, lattice and small world networks.
+
+Some things you may wish to add:
+
+1. The ability to specify which individual seeds the outbreak.
+
+2. The ability to automatically calculate specific properties of the network, such as the final size, and the height and timing of peak incidence.
+
+3. The ability to visualise the current (or final) state of the population as a network; for example, by colouring nodes according to their corresponding disease state. (Hint: you can change the colour of nodes / vertices by specifying a `color` attribute)

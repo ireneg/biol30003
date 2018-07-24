@@ -1,0 +1,141 @@
+---
+title: 'Assignment 3/4: Outbreaks on Spatial Networks'
+author: "Nic Geard"
+date: "29 August 2017"
+output: 
+  html_document: default
+layout: page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(igraph)
+```
+
+#### This assignment is due Friday 15 September 2017.  
+#### Please send your R Markdown file by email to [nicholas.geard@unimelb.edu.au](mailto:nicholas.geard@unimelb.edu.au)
+
+This assignment is in two parts, each worth 10 marks, for a total of 20 marks. The completed assignment should be no more than 500 words per part. Please include all code and figures in your submitted document.
+
+In the practicals for this module, we have explored how to generate networks from empirical data and theoretical models, how to measure various structural properties of these networks, and how to simulate the outbreak of an infectious disease on these networks.
+
+In this assignment, we will implement a new theoretical network model, with connectivity based on spatial proximity.  We will then explore (a) structural properties of networks generated using this model, and (b) the dynamics of outbreaks on networks generated using this model.
+
+## Background: Spatial networks
+
+Infectious diseases spread through populations whose individual members each occupy some location in physical space. In some cases, the spatial distribution of a population is a key determinant of how a disease will spread.  For example, the spread of the Black Death in Europe during the 14th century spread from south-eastern to northern Europe at a velocity of approximately 300--600 kilometres per year.  Measles epidemics in the UK prior to vaccination tended to start in London and spread throughout the country in coherent spatial waves.  Many diseases that affect animal and plant populations also display strong spatial patterns.
+
+The spatial structure of a population can be modelled in a variety of ways, with networks being one natural and efficient representation.  In a spatial network, nodes are located in a two-dimensional space, where the distance $d_{uv}$ between two nodes $u$ and $v$ located at $(u_x, u_y)$ and $(v_x, v_y)$ respectively is the Euclidean distance; that is
+$$d_{uv} = \sqrt{(u_x - v_x)^2 + (u_y - v_y)^2}.$$
+
+Typically, we assume that the probability of an edge existing between two nodes will decrease with distance according to some function.  
+
+## Part A: Properties of spatial networks (10 marks)
+
+The objective of this part is to implement and characterise the structure of a spatial network model. The spatial network model we will use is defined as follows:
+
+1. $N$ nodes are distributed uniformly at random in a unit square $[0,1] \times [0,1]$.
+
+2. Each node will have, on average, $k$ neighbours.
+
+3. Pairs of nodes within distance $r$ are very likely to be connected, while pairs of nodes separated by greater distance are very unlikely to be connected, where 
+$$r = \sqrt{\frac{k}{\pi N}}.$$
+
+4. The probability that two nodes $u$ and $v$ are connected is given by
+$$ p_{uv} = 
+\begin{cases}
+1 - \epsilon \frac{1-\pi r^2}{\pi r^2} & d_{uv} < r \\
+\epsilon & d_{uv} \ge r
+\end{cases}
+$$
+where $\epsilon$ is a parameter governing the relative likelihood of short-range versus long-range connections.
+
+#### Task A1: Implement this model in R using the `igraph` library. (4 marks)
+
+Your first task is to write a function that takes arguments `N`, `k`, `epsilon` ($\epsilon$) as input and returns an `igraph` network.
+
+Tips for implementing the above model:
+
+- Start with an empty graph containing $N$ nodes (and no edges).
+
+- Store the $x$ and $y$ coordinates for each node as vertex attributes. You can create (and assign values to) arbitrary vertex attributes as follows: `V(g)$node_id = seq(1:vcount(g))` (where `g` is an igraph object; this example assigns a sequential ID to each vertex).
+
+- Iterate over each pair of nodes $(u, v)$, test whether they should be connected, and use `add_edges(g, c(u, v))` to add an edge if so.  Remember that `add_edges` does not modify `g` in place, it returns the new network. This step could take a few minutes to run for large networks.  I'd recommend testing with a small network (eg, $N<100$) first.
+
+- You can plot a spatial network using the following function:
+
+``` {r eval=FALSE}
+plot_spatial_network <- function(g) {
+  # Plot a spatial network with appropriately positioned nodes.
+  # Assumes that g has vertex attributes x and y denoting node location.
+  
+  # create layout matrix
+  layout_matrix <- matrix(c(V(g)$x, V(g)$y), ncol=2)
+  
+  # plot network
+  plot(g, layout=layout_matrix, vertex.size=2, vertex.label=NA)
+}
+```
+
+- Experiment with this model to develop an intuitive feel for how network structure varies as you change the parameters.  In particular note that $\epsilon$ need only be very small (eg, in the range $[10^{-10}, 10^{-3}]$).
+
+#### Task A2: Explore the structure of networks generated by the above model (4 marks)
+
+Your second task is to generate one or more plots demonstrating how key structural properties vary with model parameters.  
+
+The main model parameter of interest is of course $\epsilon$, though $k$ will also affect network structure.  
+
+Structural properties that could be explored include (but are not limited to):
+
+- the average shortest path length; 
+
+- the average clustering coefficient; and 
+
+- the average local proximity coefficient.  
+
+The first two of these can be calculated using existing `igraph` functions.  The local proximity $d_{g,u}$ of node $u$ in network $g$,  is defined as $1-$ the average distance (as defined above) between node $u$ and it's network neighbours.  The average local proximity coefficient $d_g$ is then the average of these values $d_{g,u}$ over all nodes in the network.
+
+As the spatial network model is stochastic, for any given combination of parameters you will need to generate multiple networks.  Properties should then be reported and/or plotted as, for example, mean and standard deviations.
+
+#### Task A3: Discuss and interpret your model (2 marks)
+
+Your final task for this part is to write a couple of paragraphs that:
+
+1. discuss design and implementation decisions made when implementing the spatial network model in Task 1.
+
+2. describe and interpret the behaviour of the spatial network model, as displayed by your plot(s) from Task 2.
+
+## Part B: Disease spread on spatial networks (10 marks)
+
+The objective of this part is to characterise properties of infectious disease outbreaks on spatial networks generated by the model in Part A.  You should use a susceptible, infectious, recovered (SIR) model for the disease model, and make use of code developed during the practical exercises for this.
+
+### Task B1: Explore how outbreak characteristics are influenced by properties of the network and pathogen (6 marks)
+
+Your first task is to design, execute, and report a series of experiments that will enable you to describe how structural properties of a network (ie, spatial network model parameters) and pathogen characteristics (ie, SIR model parameters) interact to determine outbreak characteristics (eg, final size, height and timing of peak).
+
+For this task, you should include in your document: 
+
+1. brief description and justification for the experiments chosen;
+
+2. the code used to run your experiments; and
+
+3. one or more plots summarising the results of your experiments.
+
+Tips for designing experiments:
+
+- Identify parameter ranges of interest.  For any given model, there will be a range of values for parameters *outside* of which the behaviour of the model is relatively uniform; for example, because the probability of transmission is so low that an outbreak *never* occurs, or so high that it is *always* the case that every member of the population is infected by the end of the outbreak.  Try to identify, and design your experiments, around parameter ranges within which there is some interesting variation in model behaviour.
+
+- Choosing a relatively small number of parameters to vary in your experiments will make it easier (and faster) to run your experiments, and easier to communicate the results of your experiments.
+
+- As above, your disease transmission model is stochastic; you will therefore need to simulate each parameter combination multiple times to establish typical behaviour.
+
+### Task B2: Discuss and interpret the results of your experiments (4 marks)
+
+Your second task is to discuss and interpret the results of your experiments from Task 1.  Your discussion could include (but need not be limited to):
+
+1. describing observed trends in outbreak characteristics as parameters are varied.
+
+2. potential implementations of observed characteristics for disease control strategies.
+
+3. how such models could be employed in the interpretation of empirical data.
