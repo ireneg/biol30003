@@ -1,0 +1,98 @@
+---
+title: "BIOL30003: An introduction to simulating RNA-seq reads"
+author: "Irene Gallego Romero"
+date: 26 July, 2018
+output:
+  html_document: default
+layout: page
+---
+
+This practical has two purposes. *First,* it will give you the opportunity to experiment with .Rmd files and R markdown in general. Markdown is a very simple language that allows for minimal formatting of text documents in an easy, unobtrusive way. R markdown is an extended version of markdown that knows how to handle R code snippets ("chunks"), and in combination with a few packages, provides a very easy way of putting together text, code, results and figures in a single document. Because we are using Rstudio, this will happen in a seemingly seamless way, and all you will have to do to go from an .Rmd file to a nice final document is click the 'knit' button on the Rstudio GUI and sit back.
+
+*The second aim* of this practical is to give you the chance to become familiar with the R package `polyester`, a very powerful tool for simulating RNA-seq reads under realistic assumptions for downstream analysis, which we will use for the rest of the term. 
+
+If you are unfamiliar with markdown, there are many cheatsheets online that will teach you the basics and that you can refer to when you can't remember something - [here is one](https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet). If what you want is a more in-depth introduction, you can look [here](http://rmarkdown.rstudio.com/authoring_pandoc_markdown.html).
+
+Similarly, a detailed introduction to R markdown and its associated workflow is available [here](http://rmarkdown.rstudio.com/articles_intro.html), and a [cheatsheet here](https://www.rstudio.com/wp-content/uploads/2015/03/rmarkdown-reference.pdf) 
+
+To create an .Rmd scaffold for your work, go to File > New File > R Markdown in Rstudio, and explore what you get as a result. Set the output to html, unless you have previously installed TeX on your computer, in which case you should be able to also compile directly to pdf. When preparing work for this class, whether it be for the practical or for the assignments, make sure to include **results and your code chunks both** in your final report.
+
+
+### A note before we get started: 
+
+**You can, of course, copy and paste every single command in this tutorial to your own Rstudio terminal and finish in five minutes - I have no way of knowing!** However, if you simply copy and paste you will not learn much, because you will not have to think about what you're doing! A much more rewarding use of your time is to type the commands as you go along, and make sure you actually *understand* what it is you are doing. 
+
+To disincentivise copy pasting, sometimes I will explicitly ask you to tell me what a command or a line of code is actually doing. But even if I don't, it is great practice to not simply include code you don't undestand in your script, because, well, you're responsible for the output it produces. "I didn't know that's what it was doing" is not a very good excuse! 
+
+
+### Installation:
+
+Polyester is a Bioconductor package, and should be installed like this:
+
+```{r eval=FALSE}
+  source("http://bioconductor.org/biocLite.R")
+  biocLite("polyester")
+```
+
+This will take a while, because polyester has a fair number of dependencies. Keep saying 'yes' every time it asks if you want to update something. Once finished, check that everything works fine by loading the package:
+
+```{r eval=F}
+library(polyester)
+```
+
+### First steps:
+
+Because polyester is a powerful package, it is also a somewhat complex one! Rather than diving headfirst into all of that complexity, we will explore it gradually, working our way from the simplest command to the more sophisticated ones. 
+
+First we will need to create a directory to hold all of our output, which we can easily do within R:
+
+```{r eval=FALSE}
+dir.create("simulated_reads")
+setwd("simulated_reads") # Did that actually work?
+```
+
+The first thing we need are raw materials to base our simulations on. For this exercise we will work with known genes present in human chromosome 22, which is included with the package to begin with. The chunk of code below simulates reads across the first 20 transcripts in chr 22, using all the default options in the package (these are declared explicitly here for clarity).
+
+```{r eval=FALSE}
+# In order for directory changes to hold we need to change them inside the same chunk where we run the code... so we need to declare the full path below, or do setwd() again. 
+
+library(Biostrings)
+fasta_file = system.file('extdata', 'chr22.fa', package='polyester')
+fasta <- readDNAStringSet(fasta_file)
+small_fasta <- fasta[1:20]
+writeXStringSet(small_fasta, "SET THIS PATH/chr22_small.fa") # Set it
+```
+
+Have a look at the fasta file and the string you've created. What does it look like? Are you familiar with this way of representing data? Are the gene names what you expect? Make sure to look at more than just the top four or five genes...
+
+Once you're satisfied with your input, run the following chunk to actually simulate some data.
+
+```{r eval=FALSE}
+FC_matrix = matrix(1, ncol=2, nrow=20) 
+FC_matrix = matrix(1, ncol=1, nrow=20) # Legacy code, shouldn't need it if you have R version > 3.3
+
+dir.create("PLACE WHERE YOU WANT OUTPUT") # Create a different path here!
+simulate_experiment("INPUT PATH/chr22_small.fa", num_reps= c(10,10), fold_change=FC_matrix, reads_per_transcript=300, outdir='OUTPUT PATH')
+```
+
+Note that the output from the chunk - the simulated reads - isn't returned in R, but rather, written as fasta files in the directory you specify above. Have a look in there. What's going on with that `sim_counts_matrix.rda` object? 
+
+### Towards a more realistic simulation:
+
+More broadly, what exactly are you doing here? What do these options mean? **Why are you getting 40 output files?** The documentation for the simulate_experiment function (accessible through `?simulate_experiment`) should help you answer some of these. 
+
+#### Setting a seed for reproducibility:
+
+If you rerun the chunk above you will get different output (please convince yourself this is true). To make sure your work is reproducible, you should use a seed. 
+1. Look at the manual for how to include a seed and modify the chunk above to do so. 
+
+#### Controlling sample size:
+
+2. Modify the chunk to generate data from **two groups of samples with 5 and 10 individuals respectively**. 
+3. Modify the chunk to generate data from **three groups of samples with 5 individuals each**.
+
+#### Controlling transcript choices:
+
+4. Modify the chunk above to simulate data from the **last** 50 transcripts in human chr 22.
+
+For today, some of these options may make little sense, or feel unintuitive. We will explore them deeper next week. 
