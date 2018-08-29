@@ -1,0 +1,205 @@
+---
+title: 'Practical 1: Summarising matrix population models'
+date: '16 August 2018'
+---
+
+### Overview
+Our goal in this practical is to get a feel for the different ways we can summarise a matrix population model. This will involve a bit of maths as well as writing some simple R functions to calculate the summary metrics. Over the next few weeks we will use these same ideas in increasingly complex models, working up to models of population dynamics that include stochasticity and density dependence.
+
+We will focus this week on the matrix model defined in Crouse et al. (1987, Ecology). They develop a stage-structured matrix model for loggerhead sea turtles (*Caretta caretta*) and use this model to explore different management options for this threatened species.
+
+### Define a population matrix
+The first thing to do is to create a matrix in R that contains the population matrix from Crouse et al. (1987). There are many ways to do this. This is one possibility:
+```{r, eval=FALSE}
+# create a vector for each row in the matrix and then use rbind() to bind these rows together
+popmat <- rbind(c(0, 0, 0, 0, 127, 4, 80),
+                c(0.6747, 0.7370, 0, 0, 0, 0, 0),
+                c(0, 0.0486, 0.6610, 0, 0, 0, 0),
+                c(0, 0, 0.0147, 0.6907, 0, 0, 0),
+                c(0, 0, 0, 0.0518, 0, 0, 0),
+                c(0, 0, 0, 0, 0.8091, 0, 0),
+                c(0, 0, 0, 0, 0, 0.8091, 0.8089))
+```
+  
+### Deterministic metrics
+Deterministic metrics tell us about the long-term behaviour of a matrix model under an assumption that the matrix is fixed and does not change through time or have any uncertainty associated with it. There are many possible metrics. Here, we will work through four commonly calculated metrics, all of which emerge from the eigenvalues and eigenvectors of the population matrix.
+
+#### Eigenvalues and eigenvectors of a matrix
+If we call our population matrix $A$, we can set up the following equation:
+$$ \mathbf{A} \ \mathbf{v} \ = \ \lambda \ \mathbf{v}.$$
+This equation tells us that there is a particular vector $\mathbf{v}$ that, when multiplied by the population matrix $\mathbf{A}$, changes only by a scalar value $\lambda$. Confused?
+
+The above equation says that, at some point, the population model will settle into a predictable pattern that we call a *steady state*. When in steady state, the abundances in each stage will always be the same proportion of the total abundance (given by $\frac{\mathbf{v}}{\Sigma \mathbf{v}}$) and the total population abundance will grow by a factor of $\lambda$ in each time step.
+
+It's a bit more complex than this because there are typically multiple values of $\lambda$ and multiple vectors $\mathbf{v}$. If you're curious, most linear algebra textbooks will cover eigenvalues and eigenvectors in plenty of detail.
+
+Our interest in ecology is less in the mathematical details and more in the interpretation of the eigenvalues and eigenvectors. Importantly for us, there are really only a few things we need to remember:
+
+- there will usually be a *dominant* eigenvalue that dominates the long-term behaviour of the matrix model. This dominant value is simply the eigenvalue with the largest magnitude.
+
+- this dominant eigenvalue is associated with a dominant eigenvector, which reflects the population steady state and is the only eigenvector we need to worry about.
+
+#### Asymptotic growth rate
+The asymptotic population growth rate, $\lambda$ in the above equation, is the rate at which the population grows once it has reached a stable age or stage distribution. Populations at their stable age or stage distribution will grow exponentially, so $\lambda > 1$ implies positive population growth and $\lambda < 1$ implies negative population growth. $\lambda = 1$ implies a stable population that will not change in size through time. 
+
+We can calculate the asymptotic population growth rate in R with the `eigen()` function. Fortunately for us, R automatically sorts the eigenvalues into decreasing order, so the first eigenvalue listed is the dominant one.
+
+```{r, eval=FALSE}
+# calculate all eigenvalues and eigenvectors
+eigen(popmat)
+
+# pull out all eigenvalues
+eigen(popmat)$values
+
+# pull out the leading (dominant) eigenvalue
+eigen(popmat)$values[1]
+
+# we really only care about the real component of the dominant eigenvalue
+Re(eigen(popmat)$values[1])
+```
+
+##### Task 1
+Calculate the dominant eigenvalue for the loggerhead turtle matrix given above. What can you say about the long-term dynamics of this sea turtle population?
+
+
+#### Stable stage distribution
+The stable (or steady state) distribution of a population is given by the dominant eigenvector $\mathbf{v}$ from the above equation. The dominant eigenvector is the eigenvector corresponding to the largest eigenvalue. In R, this is simply the first eigenvector listed.
+
+The dominant eigenvector gives the relative abundance of each stage when the population reaches a steady state. This value is relative because it is not standardised to any particular abundance. We can calculate the dominant eigenvector using the same `eigen()` function in R. We can also standardise this vector to give us the exact proportions in each stage once the population reaches a steady state.
+
+```{r, eval=FALSE}
+# calculate all eigenvalues and eigenvectors
+eigen(popmat)
+
+# pull out all eigenvectors
+eigen(popmat)$vectors
+
+# pull out the leading (dominant) eigenvector
+eigen(popmat)$vectors[, 1]
+
+# we really only care about the real component of the dominant eigenvector
+Re(eigen(popmat)$vectors[, 1])
+
+# we also want to rescale this so that it sums to one and gives us a true proportion
+Re(eigen(popmat)$vectors[, 1]) / sum(Re(eigen(popmat)$vectors[, 1]))
+```
+
+##### Task 2
+Calculate the stable stage distribution for the sea turtle population. Which stage will have the most individuals? Assuming a total population of 1000 individuals, how many individuals will be in each stage? Note that it doesn't make sense to have fractions of an individual, so use the `round()` function to round to the nearest integer.
+
+
+#### Sensitivities
+Often we want to know how sensitive the population model is to changes in the vital rates for a particular stage. This situation arises a lot in management contexts, where we might want to know if we can target a particular stage or age group to maximise (or minimise) population growth.
+
+Sensitivites are a summary metric that tell us how small changes in survival or fecundity for particular stages will affect the overall asymptotic population growth rate ($\lambda$). Sensitivities are calculated from the stable stage distribution (also called the *right* eigenvector) but require additional information about how much each stage contributes to the population in terms of future offspring. We can calculate this information (often called the *reproductive value*) using the *left* eigenvector, which is dominant eigenvector of the transposed population matrix.
+
+We can calculate the left eigenvector in R using the `eigen()` function (as before). Confusingly, it is common practise to standardise the left eigenvector so that the reproductive value of the first class is equal to one (recall that we standardised the right eigenvector so that it summed to one).
+
+```{r, eval=FALSE}
+# calculate all eigenvalues and eigenvectors for the transposed population matrix
+eigen(t(popmat))
+
+# pull out all eigenvectors for the transposed population matrix
+eigen(t(popmat))$vectors
+
+# pull out the leading (dominant) eigenvector for the transposed population matrix
+eigen(t(popmat))$vectors[, 1]
+
+# we really only care about the real component of the dominant left eigenvector
+Re(eigen(t(popmat))$vectors[, 1])
+
+# we want to rescale the left eigenvector so that the first element equals one
+Re(eigen(t(popmat))$vectors[, 1]) / Re(eigen(t(popmat))$vectors[1, 1])
+```
+
+Once we have the left eigenvector, we need to combine it with the right eigenvector to give us the sensitivity of each stage in the matrix model. Specifically, the sensitivity $s_{i,j}$ of the population to the vital rate in row $i$ and column $j$ is given by:
+$$s_{i,j} = \frac{v_i \ w_j}{\mathbf{v} \cdot \mathbf{w}}.$$
+
+We can interpret $s_{i,j}$ as the relative change in $\lambda$ given a very small change in the element of $\mathbf{A}$ in row $i$ and column $j$. If you want to dig into this a bit deeper, the sensitivity is actually the partial derivative $\frac{\partial \lambda}{\partial a_{i,j}}$, where $a_{i,j}$ is the element of $\mathbf{A}$ in row $i$ and column $j$. Therefore, if we imagine a surface of $\lambda$ values with one axis for each matrix element, then $s_{i,j}$ is simply the slope of $\lambda$ in the direction of the $[i,j]^{th}$ element.
+
+We can calculate sensitivities in R using much the right and left eigenvectors that we've already calculated.
+
+```{r, eval=FALSE}
+# calculate right eigenvector
+right_eigenvector <- Re(eigen(popmat)$vectors[, 1]) / sum(Re(eigen(popmat)$vectors[, 1]))
+
+# calculate left eigenvector
+left_eigenvector <- Re(eigen(t(popmat))$vectors[, 1]) / Re(eigen(t(popmat))$vectors[1, 1])
+
+# combine the two using the equation above
+sensitivities <- (right_eigenvector %o% left_eigenvector) / c(right_eigenvector %*% left_eigenvector)
+```
+
+##### Task 3
+Calculate the sensitivities for the loggerhead turtle population. Which region of the matrix would you target if you wanted to maximise population growth rates?
+
+
+#### Elasticities
+One problem with sensitivities is that not every matrix element is equally variable. Survival and reproduction values are measured in different units, and many elements are fixed at zero. For example, it takes many years for a hatchling to grow to full adult size. Therefore, it is very unlikely that we could increase the values in the bottom left corner of the transition matrix (hatchlings suddenly growing into full adults in one year). Similarly, an increase of 0.1 might be really easy if we're looking at fecundity, which might range from 0 to 1000. The same increase of 0.1 might be very difficult if we're focusing on survival of adults, which ranges from 0 to 1.
+
+To address these differences, we often use a rescaled version of the sensitivities, called *elasticities*. The elasiticity of a given element is the effect on $\lambda$ of a proportional change in a given vital rate. We can calculate elasticities easily from the sensitivities and $\lambda$ values we've already calculated:
+$$e_{i,j} = \frac{a_{i,j} \ s_{i,j}}{\lambda}.$$
+
+This might seem a bit obscure but actually emerges from the partial derivative approach used to define sensitivities. Rather than taking the derivative of $\lambda$ with respect to a given element of $\mathbf{A}$, $\frac{\partial \lambda}{\partial a_{i,j}}$, we are taking the derivative on a log scale:
+$$\frac{\partial \ ln \ \lambda}{\partial \ ln \ a_{i,j}} = \frac{a_{i,j}}{\lambda} \frac{\partial{\lambda}}{\partial{a_{i,j}}} = \frac{a_{i,j}}{\lambda} s_{i,j}.$$
+
+##### Task 4
+Calculate the elasticities for the loggerhead turtle population. Thinking back to your sensitivity analysis, would you still focus on the same region of the population matrix if you wanted to maximise population growth rates?
+
+#### Challenge
+Write a function that takes as input a population matrix ($\mathbf{A}$) and returns all of the metrics we've discussed (asymptotic population growth rate, stable stage distribution, sensitivities, elasticities). I'm not going to check if you do this but this function will be useful in future weeks.
+
+Here is some pseudo-code to get you started:
+```{r, eval=FALSE}
+# A function to calculate left and right eigenvectors and eigenvalues of a matrix
+#	Input:
+#   mat - a matrix
+#	Possible outputs (don't need all of these):
+#   all eigenvalues
+#		dominant eigenvalue
+#		right eigenvectors
+#		dominant right eigenvector rescaled to sum to one
+#		left eigenvectors
+#		dominant left eigenvector rescaled so the first element is equal to one
+eigs <- function(mat) {
+
+  # calculate right and left eigen-decompositions
+  ## use eigen() function ##
+
+  # extract eigenvalues and dominant eigenvalue
+  ## use the Re() function to return real values only ##
+
+  # extract right eigenvectors and standardise to sum to one
+
+  # extract left eigenvectors and standardise so the first element is equal to one
+
+  # collate outputs in a list
+
+  # return outputs
+
+}
+
+# Function to calculate sensitivities S from a given matrix
+# Requires:
+#   eigs - an R function to calculate eigenvalues and eigenvectors from a matrix
+# Input:
+#   mat - a given matrix
+# Outputs:
+#   S - the matrix of sensitivities
+#   E - the matrix of elasticities
+sensitivity <- function(mat) {
+  
+  # extract eigenvalues and eigenvectors
+  eig_vals <- eigs(mat)
+  
+  # calculate sensitivities
+  S <- (eig_vals$v %o% eig_vals$w) / c(eig_vals$v %*% eig_vals$w)
+  
+  # calculate elasticities
+  E <- S * mat / eig_vals$lambda_dom
+  
+  # return sensitivities and elasticities
+  list(S = S, E = E)
+  
+}
+```

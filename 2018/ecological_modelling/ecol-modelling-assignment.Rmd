@@ -1,0 +1,113 @@
+---
+title: 'Assignment 3: Using models of population dynamics to guide ecological management'
+author: 'Jian Yen'
+date: '29 August 2018'
+output: 
+  html_document: default
+layout: page
+---
+
+#### This assignment is due Friday 7 September 2017.  
+
+#### Please send your R Markdown file by email to [jian.yen@unimelb.edu.au](mailto:jian.yen@unimelb.edu.au)
+
+### Assignment overview
+This assignment is worth 10 marks. The completed assignment should be no more than 500 words (not including code, figures, and tables). Please include all code, figures, and tables in your submitted document.
+
+In the practicals for this module, we have explored how to build models of population dynamics that include age or stage structure, density dependence, and deterministic and stochastic variation in survival and fecundity. In this assignment, you will use one of these models to inform environmental flow releases over the next 10 years in the Murray river in south-eastern Australia. Your goal is to design a sequence of flow releases that minimises the probability that an endemic fish species will go extinct in the future. The catch: this fish species has specific flow requirements and you have a very limited amount of water to work with.
+
+
+### Background
+Murray cod (*Maccullochella peelii*) are a freshwater fish species endemic to south-eastern Australia. Murray cod are a large fish, growing to more than 1 m in length and living for up to 50 years.
+
+Murray cod face many pressures, including fishing and competition and predation from the invasive common carp (*Cyprinus carpio*). One factor thought to threaten Murray cod is the extraction of water for agriculture, which has altered the availability of water and timing of key flow events, such as large floods. A key challenge for management agencies is to determine whether targeted flow releases might improve the long-term survival of Murray cod populations.
+
+### Model overview
+
+We can address this challenge with a structured population model that allows vital rates (survival, growth, fecundity) to depend on flow variables. Assuming a size-structured model, one possible model structure is:
+$$\mathbf{n_t} = \Lambda(\mathbf{x_t}) \ \mathbf{n_{t-1}}.$$
+
+Here, $n_t$ is a vector of abundances in each size class at time $t$ and $\Lambda(\mathbf{x_t})$ is a matrix of vital rates that depend on environmental conditions $\mathbf{x_t}$ measured at time $t$. In this assignment, we assume that the vector $\mathbf{x_t}$ is a single variable representing total flow volume in year $t$ (measured in Gigalitres, $L \times 10^9$).
+
+It is possible to incorporate environmental variables by modelling vital rates as $\Lambda(\mathbf{x_t}) = f(\mathbf{x_t}) \ \Lambda_{base}$, where $\Lambda_{base}$ is the vital rates in ideal conditions (provided in `pop-matrix-example.csv`) and $f(\mathbf{x_t})$ is a scaling factor that modifies vital rates based on the environmental conditions $\mathbf{x_t}$. 
+
+### Scenario
+
+You have a very limited water budget of 3000 GL over 10 years. You need to allocate this water among years, with a focus on three key flow *events*:
+
+- large spring floods (> 240 GL required per year)
+
+- continuous baseflows in spring and summer (90 GL required per year)
+
+- moderate winter floods (150 GL required per year)
+
+Note that these three events are *not* complementary. Water allocated to large spring floods does not contribute to the requirement for continuous baseflows in spring and summer. Clearly, the total water required to meet all three flow events every year for 10 years (4800 GL) exceeds the amount of water you have available.
+
+For the purposes of this assignment, you can assume the following effects of each flow event on vital rates:
+
+##### Spring floods
+$$\Lambda(x_t) = \frac{1}{1 \ + \ 50 \ e^{-0.02 x_t}} \ \Lambda_{base}$$.
+
+##### Spring and summer baseflows
+$$\Lambda(x_t) = \frac{1}{1 \ + \ e^{\left(90 - x_t\right)}} \ \Lambda_{base}$$.
+
+##### Winter floods
+$$\Lambda(x_t) = \frac{1}{1 \ + \ e^{\left(14 - 0.1 x_t\right)}} \ \Lambda_{base}$$.
+
+
+### Task 1: Develop a stage-structured population model with vital rates that depend on environmental conditions (2 marks)
+
+The objective of this section to implement a size-structured matrix model where vital rates depend on flow volumes according to the functions $\Lambda(x)$ defined above. The primary output should be a function (or set of functions) that can estimate population dynamics for any sequence of flow data. Keep in mind that the three flow events require separate water allocations, so you will need to track the water provided for each flow event in each year (e.g., consider a $3 \times 10$ matrix with water allocations to each component in rows and years in columns).
+
+Hints:
+
+- Write down the key model inputs and outputs. How will you pass these between different parts of your model?
+
+- Think about how you will use this function. Do you want to generate many simulations within the one function? Or run the same function many times?
+
+Expected outputs:
+
+- An R function or set of R functions that can take any given flow sequence and initial conditions and return a sequence of abundances through time.
+
+
+### Task 2: Simulate the model forward in time and summarise the simulated trajectories (2 marks)
+
+Your second task is to summarise the outputs of your population model. The key output in this assignment is the probability of extinction on a 10 year timeframe, but keep in mind that extinction is a very extreme end point. Other outputs of interest might be the total abundance (assume more is better) or the relative change in abundance from $t = 1$ to $t = 10$.
+
+In this example, you do not have a fixed set of initial conditions You will need to incorporate this uncertainty into your model by simulating population trajectories for many different possible initial conditions. One way to set initial conditions is to set a fixed total population abundance and split this among size classes based on the dominant eigenvector (the stable size distribution).
+
+Hints:
+
+- You want your results to be reproducible. Try using the `set.seed()` function to seed your simulation.
+
+- A plot can be an excellent way to visualise what's going on in your simulations.
+
+- Depending on your initial conditions, there can be many generations of *transient* dynamics that do not reflect long-term model behaviour. Think about whether these transient dynamics are interesting or not.
+
+Expected outputs:
+
+- An R script that runs the model developed in *Task 1* for many different initial conditions and summarises the outputs in a meaningful way.
+
+
+### Task 3: Use your model to design a sequence of flow releases that will minimise the probability of extinction into the future (3 marks)
+
+Your third task is to use your model to identify *good* flow sequences. How you do this is up to you. You might want to create a large number of flow sequences and compare the population abundances and extinction probabilities under each. Alternatively, you might wish to use an optimisation method to identify a quasi-optimal flow sequence.
+
+Hints:
+
+- Keep in mind that an "optimal" flow sequence must have very low probability of generating bad outcomes. Focusing on average outputs over many simulations can be misleading if there is substantial variation among model runs.
+
+Expected outputs:
+
+- A R script that compares many flow sequences and identifies good management options.
+
+
+### Task 4: Discuss and interpret your model (3 marks)
+
+Your final task for this part is to write a few paragraphs (< 500 words) about your model. You should aim to address the following points:
+
+- What does your recommended flow sequence look like? Do you think this is a truly optimal flow sequence? Why or why not?
+
+- What assumptions have you made in your model? Are these reasonable?
+
+- How might you improve your model?
